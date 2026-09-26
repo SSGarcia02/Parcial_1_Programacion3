@@ -58,4 +58,19 @@ defmodule Validaciones do
       {:ok, servicio}
     end
   end
+
+  def validar_servicios_validos_rechazados(servicios, repartidores, zonas) do
+    lista_formateada =
+      Enum.map(servicios, fn s -> {s, validar_servicio(s, repartidores, zonas)} end)
+
+    {ok, error} =
+      Enum.split_with(lista_formateada, fn {_servicio, resultado} ->
+        match?({:ok, _}, resultado)
+      end)
+
+    validos = Enum.map(ok, fn {servicio, _resultado} -> servicio end)
+    rechazados = Enum.map(error, fn {servicio, {:error, motivo}} -> {servicio, motivo} end)
+
+    {validos, rechazados}
+  end
 end
