@@ -51,17 +51,62 @@ defmodule Liquidacion do
   end
 
   def resumen_dia(clave, servicios_dia, repartidores) do
-   {repartidor, dia} = clave
-   kilometros = kilometros_dia(servicios_dia)
-   valor = valor_dia(servicios_dia)
-   bonificacion = bonificacion_dia(kilometros)
+    {repartidor, dia} = clave
+    kilometros = kilometros_dia(servicios_dia)
+    valor = valor_dia(servicios_dia)
+    bonificacion = bonificacion_dia(kilometros)
 
-   info_repartidor = Enum.find(repartidores, fn r -> r[:codigo] == repartidor end)
-   usa_bicicleta = info_repartidor[:bicicleta]
-   alquiler = alquiler_dia(usa_bicicleta)
+    info_repartidor = Enum.find(repartidores, fn r -> r[:codigo] == repartidor end)
+    usa_bicicleta = info_repartidor[:bicicleta]
+    alquiler = alquiler_dia(usa_bicicleta)
 
-    %{repartidor: repartidor, dia: dia, kilometros: kilometros,
-    valor_servicio: valor, bonificacion: bonificacion, alquiler: alquiler}
-
+    %{
+      repartidor: repartidor,
+      dia: dia,
+      kilometros: kilometros,
+      valor_servicios: valor,
+      bonificacion: bonificacion,
+      alquiler: alquiler
+    }
   end
+
+  def resumenes_diarios(agrupado, repartidores) do
+    Enum.map(agrupado, fn {clave, servicios} ->
+      resumen_dia(clave, servicios, repartidores)
+    end)
+  end
+
+  def liquidacion_repartidor(codigo, resumenes, info_repartidor) do
+    nombre = info_repartidor[:nombre]
+
+    kilometros = Enum.reduce(resumenes, 0, fn r, acc -> acc + r[:kilometros] end)
+    valor_servicios = Enum.reduce(resumenes, 0, fn r, acc -> acc + r[:valor_servicios] end)
+    bonificaciones = Enum.reduce(resumenes, 0, fn r, acc -> acc + r[:bonificacion] end)
+    alquiler = Enum.reduce(resumenes, 0, fn r, acc -> acc + r[:alquiler] end)
+
+    neto = valor_servicios + bonificaciones - alquiler
+
+    %{
+      codigo: codigo,
+      nombre: nombre,
+      kilometros: kilometros,
+      valor_servicios: valor_servicios,
+      bonificaciones: bonificaciones,
+      alquiler: alquiler,
+      neto: neto
+    }
+  end
+
+  def liquidacion(validos, repartidores) do
+    validos_agrupados = agrupar_por_dia(validos)
+    resumenes = resumenes_diarios(validos_agrupados, repartidores)
+
+    Enum.map(repartidores, fn rep ->
+      codigo = rep[:codigo]
+      resumen_repartidor = Enum.filter(resumenes, fn res -> res[:repartidor] == codigo end)
+      liquidacion_repartidor(codigo, resumen_repartidor, rep)
+    end)
+  end
+
+  
 end
