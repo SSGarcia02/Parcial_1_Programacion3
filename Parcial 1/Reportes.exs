@@ -46,4 +46,41 @@ defmodule Reportes do
     conteo = Enum.frequencies(Enum.map(rechazados, fn {_s, m} -> m end))
     {rechazados, conteo}
   end
+
+  def obtener_categorias_unicas(ventas) do
+    ventas
+    |> Enum.map(& &1.categoria)
+    |> Enum.uniq()
+  end
+
+  def agrupar_productos_por_categoria(ventas) do
+    Enum.group_by(ventas, & &1.categoria, & &1.producto)
+  end
+
+  def contar_ventas_por_categoria(ventas) do
+    Enum.frequencies_by(ventas, & &1.categoria)
+  end
+
+  def sumar_unidades_por_categoria(ventas) do
+    Enum.reduce(ventas, %{}, fn venta, acumulado ->
+      Map.update(
+        acumulado,
+        venta.categoria,
+        venta.cantidad,
+        &(&1 + venta.cantidad)
+      )
+    end)
+  end
+
+  def hay_venta_alta?(ventas) do
+    Enum.any?(ventas, &(&1.cantidad > 4))
+  end
+
+  def ventas_validas?(ventas) do
+    Enum.all?(ventas, &(&1.cantidad > 0))
+  end
+
+  def buscar_primera_venta_categoria(ventas, categoria) do
+    Enum.find(ventas, &(&1.categoria == categoria))
+  end
 end
