@@ -111,37 +111,37 @@ defmodule Interfaz do
   defp generar_reportes(servicios_validos, rechazados, repartidores) do
     Util.mostrar_mensaje("\n=== Reportes Jugutier ===")
 
-    IO.inspect(Reportes.reporte_r1(rechazados), label: "R1 - Servicios rechazados")
-
-    IO.inspect(
-      Reportes.total_kilometros(servicios_validos),
-      label: "R2 - Total de kilómetros"
-    )
-
     liquidaciones = Liquidacion.liquidacion(servicios_validos, repartidores)
+    r1 = Reportes.reporte_r1(rechazados)
+    r2 = Reportes.reporte_r2(liquidaciones)
+    r3 = Reportes.reporte_r3(servicios_validos)
+    r4 = Reportes.reporte_r4(servicios_validos)
+    r5 = Reportes.reporte_r5(liquidaciones)
+    r6 = Reportes.reporte_r6(servicios_validos)
+    r7 = Reportes.reporte_r7(servicios_validos)
+    r8 = Reportes.reporte_r8(servicios_validos, Datos.zonas())
 
-    IO.inspect(
-      Reportes.total_pagado(liquidaciones),
-      label: "R3 - Total neto pagado"
-    )
+    combinacion = Reportes.combinar_kilometros_aliada(r3)
+    ranking = Reportes.ranking(r2, orden: :desc, limite: 5)
+    mediciones = Reportes.medir_reportes(servicios_validos)
 
-    IO.inspect(
-      Reportes.kilometros_por_repartidor_dia(servicios_validos),
-      label: "R4 - Kilómetros por repartidor y día"
-    )
+    IO.inspect(r1, label: "R1 - Servicios rechazados y conteo por motivo")
+    IO.inspect(r2, label: "R2 - Liquidación por repartidor")
+    IO.inspect(r3, label: "R3 - Kilómetros por día")
+    IO.inspect(r4, label: "R4 - Total de kilómetros válidos")
+    IO.inspect(r5, label: "R5 - Total neto pagado")
+    IO.inspect(r6, label: "R6 - Puntualidad ponderada (mínimo 3 servicios)")
+    IO.inspect(r7, label: "R7 - Zonas atendidas por repartidor")
+    IO.inspect(r8, label: "R8 - Repartidores con cobertura total")
+    IO.inspect(combinacion, label: "Kilómetros combinados con empresa aliada")
+    IO.inspect(ranking, label: "Ranking de repartidores (neto descendente, top 5)")
 
-    IO.inspect(
-      Reportes.zonas_por_repartidor(servicios_validos),
-      label: "R5 - Zonas por repartidor"
-    )
+    tiempos_microsegundos =
+      Map.new(mediciones, fn {reporte, datos} ->
+        {reporte, datos[:microsegundos]}
+      end)
 
-    IO.inspect(
-      Reportes.retraso_ponderado(servicios_validos),
-      label: "R6 - Retraso ponderado global"
-    )
-
-    Util.mostrar_mensaje("R7 - No disponible: Reportes no define este reporte.")
-    Util.mostrar_mensaje("R8 - No disponible: Reportes no define este reporte.")
+    IO.inspect(tiempos_microsegundos, label: "Mediciones de ejecución (microsegundos)")
   end
 
   defp generar_comprobante(servicios_validos, repartidores) do
