@@ -47,62 +47,173 @@ defmodule Reportes do
     {rechazados, conteo}
   end
 
-  def reporte_r2(liquidaciones) do
-    Enum.map(liquidaciones, fn liquidacion ->
+  def reporte_r2(validos, zonas) do
+    km_por_zona =
+      validos
+      |> Enum.group_by(fn s -> s[:zona] end)
+      |> Map.new(fn {zona, servicios} -> {zona, Liquidacion.kilometros_dia(servicios)} end)
+
+    zonas
+    |> Enum.map(fn zona ->
+      km = Map.get(km_por_zona, zona[:id], 0)
+      densidad = km / zona[:area]
+
       %{
-        codigo: liquidacion[:codigo],
-        nombre: liquidacion[:nombre],
-        kilometros: liquidacion[:kilometros],
-        valor_servicios: liquidacion[:valor_servicios],
-        bonificaciones: liquidacion[:bonificaciones],
-        alquiler: liquidacion[:alquiler],
-        neto: liquidacion[:neto]
+        id: zona[:id],
+        nombre: zona[:nombre],
+        area: zona[:area],
+        km: km,
+        densidad: densidad
+      }
+    end)
+    |> Enum.sort_by(fn z -> z[:densidad] end, :desc)
+  end
+
+  def reporte_r3(validos) do
+    km_por_dia =
+      validos
+      |> Enum.group_by(fn s -> s[:dia] end)
+      |> Map.new(fn {dia, servicios} -> {dia, Liquidacion.kilometros_dia(servicios)} end)
+
+    por_dia =
+      Enum.map(1..6, fn dia ->
+        km = Map.get(km_por_dia, dia, 0)
+        %{dia: dia, km: km, alcanzo: km >= 500}
+      end)
+
+    todos = Enum.all?(por_dia, fn d -> d[:alcanzo] end)
+    al_menos_uno = Enum.any?(por_dia, fn d -> d[:alcanzo] end)
+
+    {por_dia, todos, al_menos_uno}
+  end
+
+  def reporte_r4(liquidaciones) do
+    liquidaciones
+    |> Enum.sort_by(fn l -> l[:neto] end, :desc)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {l, posicion} ->
+      %{
+        posicion: posicion,
+        codigo: l[:codigo],
+        nombre: l[:nombre],
+        kilometros: l[:kilometros],
+        valor_servicios: l[:valor_servicios],
+        bonificaciones: l[:bonificaciones],
+        alquiler: l[:alquiler],
+        neto: l[:neto]
       }
     end)
   end
 
-  def reporte_r3(validos) do
-    validos
-    |> Enum.group_by(fn servicio -> servicio[:dia] end)
-    |> Map.new(fn {dia, servicios_dia} ->
-      {dia, Liquidacion.kilometros_dia(servicios_dia)}
-    end)
+  def reporte_r5(validos, repartidores) do
+    km_por_repartidor_dia = kilometros_por_repartidor_dia(validos)
+    nombres = Map.new(repartidores, fn r -> {r[:codigo], r[:nombre]} end)
+
+    maximos_por_dia =
+      Enum.map(1..6, fn dia ->
+        del_dia =
+          km_por_repartidor_dia
+          |> Enum.filter(fn {{_rep, d}, _km} -> d == dia end)
+
+        case del_dia do
+          [] ->
+            {dia, []}
+
+          _ ->
+            max_km = del_dia |> Enum.map(fn {_clave, km} -> km end) |> Enum.max()
+
+            empatados =
+              del_dia
+              |> Enum.filter(fn {_clave, km} -> km == max_km end)
+              |> Enum.map(fn {{rep, _d}, km} ->
+                %{codigo: rep, nombre: Map.get(nombres, rep, rep), km: km}
+              end)
+              |> Enum.sort_by(fn r -> r[:codigo] end)
+
+            {dia, empatados}
+        end
+      end)
+
+    conteo_primeros =
+      maximos_por_dia
+      |> Enum.flat_map(fn {_dia, reps} -> reps end)
+      |> Enum.map(fn r -> r[:codigo] end)
+      |> Enum.frequencies()
+
+    ganador =
+      case conteo_primeros do
+        mapa when map_size(mapa) == 0 ->
+          nil
+
+        _ ->
+          max_veces = conteo_primeros |> Map.values() |> Enum.max()
+
+          conteo_primeros
+          |> Enum.filter(fn {_c, v} -> v == max_veces end)
+          |> Enum.map(fn {c, _} -> c end)
+      end
+
+    {maximos_por_dia, conteo_primeros, ganador}
   end
-
-  def reporte_r4(validos), do: total_kilometros(validos)
-
-  def reporte_r5(liquidaciones), do: total_pagado(liquidaciones)
 
   def reporte_r6(validos) do
-    validos
-    |> Enum.group_by(fn servicio -> servicio[:repartidor] end)
-    |> Enum.filter(fn {_codigo, servicios} -> length(servicios) >= 3 end)
-    |> Map.new(fn {codigo, servicios} -> {codigo, retraso_ponderado(servicios)} end)
+    candidatos =
+      validos
+      |> Enum.group_by(fn s -> s[:repartidor] end)
+      |> Enum.filter(fn {_codigo, servicios} -> length(servicios) >= 3 end)
+
+    case candidatos do
+      [] ->
+        nil
+
+      _ ->
+        candidatos
+        |> Enum.map(fn {codigo, servicios} ->
+          %{codigo: codigo, retraso_ponderado: retraso_ponderado(servicios)}
+        end)
+        |> Enum.min_by(fn c -> c[:retraso_ponderado] end)
+    end
   end
 
-  def reporte_r7(validos), do: zonas_por_repartidor(validos)
+  def reporte_r7(liquidaciones, validos) do
+  total_pagado = total_pagado(liquidaciones)
+  total_km = total_kilometros(validos)
+
+  costo_promedio =
+    if total_km == 0 do
+      nil
+    else
+      total_pagado / total_km
+    end
+
+  %{
+    total_pagado: total_pagado,
+    total_kilometros: total_km,
+    costo_promedio: costo_promedio
+  }
+end
 
   def reporte_r8(validos, zonas) do
-    zonas_ciudad = Enum.map(zonas, fn zona -> zona[:id] end)
-    por_repartidor = Enum.group_by(validos, fn servicio -> servicio[:repartidor] end)
+    zonas_ciudad = Enum.map(zonas, fn z -> z[:id] end)
+    por_repartidor = Enum.group_by(validos, fn s -> s[:repartidor] end)
 
     por_repartidor
     |> Enum.filter(fn {_codigo, servicios} ->
-      zonas_visitadas = Enum.map(servicios, fn servicio -> servicio[:zona] end)
-      Enum.all?(zonas_ciudad, fn zona -> Enum.member?(zonas_visitadas, zona) end)
+      zonas_visitadas = servicios |> Enum.map(fn s -> s[:zona] end) |> Enum.uniq()
+      Enum.all?(zonas_ciudad, fn z -> Enum.member?(zonas_visitadas, z) end)
     end)
     |> Enum.map(fn {codigo, _servicios} -> codigo end)
+    |> Enum.sort()
   end
 
-  def combinar_kilometros_aliada(kilometros_por_dia) do
-    kilometros_aliada = %{1 => 580.5, 2 => 430, 3 => 510, 5 => 625, 7 => 180}
+  def combinar_kilometros_aliada(por_dia) do
+  kilometros_aliada = %{1 => 580.5, 2 => 430, 3 => 510, 5 => 625, 7 => 180}
+  km_jugutier = Map.new(por_dia, fn d -> {d[:dia], d[:km]} end)
 
-    Map.merge(kilometros_aliada, kilometros_por_dia, fn _dia,
-                                                        kilometros_aliados,
-                                                        kilometros_jugutier ->
-      kilometros_aliados + kilometros_jugutier
-    end)
-  end
+  Map.merge(kilometros_aliada, km_jugutier, fn _dia, aliada, jugutier ->
+    aliada + jugutier
+  end)
+end
 
   def ranking(reporte_r2, opciones) do
     orden = Keyword.get(opciones, :orden, :desc)
@@ -114,19 +225,27 @@ defmodule Reportes do
     |> limitar(limite)
   end
 
-  def medir_reportes(validos) do
-    {tiempo_r3, resultado_r3} = :timer.tc(fn -> reporte_r3(validos) end)
-    {tiempo_r6, resultado_r6} = :timer.tc(fn -> reporte_r6(validos) end)
+  defp medir_promedio(fun, repeticiones \\ 1000) do
+  tiempos =
+    for _ <- 1..repeticiones do
+      {t, _} = :timer.tc(fun)
+      t
+    end
 
-    {tiempo_combinacion, resultado_combinacion} =
-      :timer.tc(fn -> validos |> reporte_r3() |> combinar_kilometros_aliada() end)
+  Enum.sum(tiempos) / repeticiones
+end
 
-    %{
-      r3: %{microsegundos: tiempo_r3, resultado: resultado_r3},
-      r6: %{microsegundos: tiempo_r6, resultado: resultado_r6},
-      combinacion: %{microsegundos: tiempo_combinacion, resultado: resultado_combinacion}
-    }
-  end
+  def medir_reportes(validos, liquidaciones, zonas, repartidores) do
+  r2 = medir_promedio(fn -> reporte_r2(validos, zonas) end)
+  r3 = medir_promedio(fn -> reporte_r3(validos) end)
+  r4 = medir_promedio(fn -> reporte_r4(liquidaciones) end)
+  r5 = medir_promedio(fn -> reporte_r5(validos, repartidores) end)
+  r6 = medir_promedio(fn -> reporte_r6(validos) end)
+  r7 = medir_promedio(fn -> reporte_r7(liquidaciones, validos) end)
+  r8 = medir_promedio(fn -> reporte_r8(validos, zonas) end)
+
+  %{r2: r2, r3: r3, r4: r4, r5: r5, r6: r6, r7: r7, r8: r8}
+end
 
   defp limitar(reporte, limite) when is_integer(limite) and limite >= 0 do
     Enum.take(reporte, limite)

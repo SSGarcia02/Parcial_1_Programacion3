@@ -25,7 +25,7 @@ defmodule Interfaz do
   defp capturar_servicio_adicional(servicios_validos, repartidores, zonas) do
     entrada =
       Util.ingresar(
-        "Ingrese un servicio adicional (repartidor:zona dia kilometros retraso) o Enter para omitir:",
+        "Ingrese un servicio adicional (repartidor;zona;dia;kilometros;retraso) o Enter para omitir:",
         :texto
       )
 
@@ -53,16 +53,7 @@ defmodule Interfaz do
   end
 
   defp parsear_servicio(entrada) do
-    case String.split(entrada) do
-      [repartidor_zona, dia_texto, kilometros_texto, retraso_texto] ->
-        case String.split(repartidor_zona, ":") do
-          [repartidor, zona] ->
-            construir_servicio(repartidor, zona, dia_texto, kilometros_texto, retraso_texto)
-
-          _ ->
-            {:error, :formato_invalido}
-        end
-
+    case String.split(entrada, ";") do
       [repartidor, zona, dia_texto, kilometros_texto, retraso_texto] ->
         construir_servicio(repartidor, zona, dia_texto, kilometros_texto, retraso_texto)
 
@@ -112,36 +103,32 @@ defmodule Interfaz do
     Util.mostrar_mensaje("\n=== Reportes Jugutier ===")
 
     liquidaciones = Liquidacion.liquidacion(servicios_validos, repartidores)
-    r1 = Reportes.reporte_r1(rechazados)
-    r2 = Reportes.reporte_r2(liquidaciones)
-    r3 = Reportes.reporte_r3(servicios_validos)
-    r4 = Reportes.reporte_r4(servicios_validos)
-    r5 = Reportes.reporte_r5(liquidaciones)
-    r6 = Reportes.reporte_r6(servicios_validos)
-    r7 = Reportes.reporte_r7(servicios_validos)
-    r8 = Reportes.reporte_r8(servicios_validos, Datos.zonas())
+    zonas = Datos.zonas()
 
-    combinacion = Reportes.combinar_kilometros_aliada(r3)
-    ranking = Reportes.ranking(r2, orden: :desc, limite: 5)
-    mediciones = Reportes.medir_reportes(servicios_validos)
+    r1 = Reportes.reporte_r1(rechazados)
+    r2 = Reportes.reporte_r2(servicios_validos, zonas)
+    r3 = Reportes.reporte_r3(servicios_validos)
+    r4 = Reportes.reporte_r4(liquidaciones)
+    r5 = Reportes.reporte_r5(servicios_validos, repartidores)
+    r6 = Reportes.reporte_r6(servicios_validos)
+    r7 = Reportes.reporte_r7(liquidaciones, servicios_validos)
+    r8 = Reportes.reporte_r8(servicios_validos, zonas)
+
+    combinacion = Reportes.combinar_kilometros_aliada(elem(r3, 0))
+    ranking = Reportes.ranking(liquidaciones, orden: :desc, limite: 5)
+    mediciones = Reportes.medir_reportes(servicios_validos, liquidaciones, zonas, repartidores)
 
     IO.inspect(r1, label: "R1 - Servicios rechazados y conteo por motivo")
-    IO.inspect(r2, label: "R2 - Liquidación por repartidor")
-    IO.inspect(r3, label: "R3 - Kilómetros por día")
-    IO.inspect(r4, label: "R4 - Total de kilómetros válidos")
-    IO.inspect(r5, label: "R5 - Total neto pagado")
-    IO.inspect(r6, label: "R6 - Puntualidad ponderada (mínimo 3 servicios)")
-    IO.inspect(r7, label: "R7 - Zonas atendidas por repartidor")
+    IO.inspect(r2, label: "R2 - Kilómetros por zona y densidad")
+    IO.inspect(r3, label: "R3 - Kilómetros por día y meta")
+    IO.inspect(r4, label: "R4 - Liquidación numerada por neto")
+    IO.inspect(r5, label: "R5 - Repartidor con más km cada día")
+    IO.inspect(r6, label: "R6 - Mejor puntualidad")
+    IO.inspect(r7, label: "R7 - Total pagado y costo promedio")
     IO.inspect(r8, label: "R8 - Repartidores con cobertura total")
-    IO.inspect(combinacion, label: "Kilómetros combinados con empresa aliada")
-    IO.inspect(ranking, label: "Ranking de repartidores (neto descendente, top 5)")
-
-    tiempos_microsegundos =
-      Map.new(mediciones, fn {reporte, datos} ->
-        {reporte, datos[:microsegundos]}
-      end)
-
-    IO.inspect(tiempos_microsegundos, label: "Mediciones de ejecución (microsegundos)")
+    IO.inspect(combinacion, label: "Combinación con empresa aliada")
+    IO.inspect(ranking, label: "Ranking de repartidores (top 5 por neto)")
+    IO.inspect(mediciones, label: "Mediciones de ejecución (µs)")
   end
 
   defp generar_comprobante(servicios_validos, repartidores) do
@@ -160,8 +147,7 @@ defmodule Interfaz do
             Liquidacion.resumen_dia(clave, servicios_dia, repartidores)
           end)
 
-        liquidacion =
-          Liquidacion.liquidacion_repartidor(codigo, resumenes, repartidor)
+        liquidacion = Liquidacion.liquidacion_repartidor(codigo, resumenes, repartidor)
 
         Util.mostrar_mensaje("\n=== Comprobante de repartidor ===")
         IO.inspect(%{nombre: repartidor[:nombre], codigo: codigo}, label: "Repartidor")
