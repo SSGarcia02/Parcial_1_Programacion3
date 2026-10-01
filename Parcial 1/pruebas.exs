@@ -1,10 +1,10 @@
-Code.require_file("datos.exs")
-Code.require_file("validaciones.exs")
-Code.require_file("liquidacion.exs")
-Code.require_file("reportes.exs")
+Code.require_file("Datos.exs", __DIR__)
+Code.require_file("Validaciones.exs", __DIR__)
+Code.require_file("Liquidacion.exs", __DIR__)
+Code.require_file("Reportes.exs", __DIR__)
 
 # Primero validar
-{validos, rechazados} = Validaciones.validar_servicios_validos_rechazados(
+{validos, _rechazados} = Validaciones.validar_servicios_validos_rechazados(
   Datos.servicios(),
   Datos.repartidores(),
   Datos.zonas()

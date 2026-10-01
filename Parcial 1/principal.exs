@@ -23,11 +23,29 @@ defmodule Interfaz do
   end
 
   defp capturar_servicio_adicional(servicios_validos, repartidores, zonas) do
-    entrada =
-      Util.ingresar(
-        "Ingrese un servicio adicional (repartidor;zona;dia;kilometros;retraso) o Enter para omitir:",
-        :texto
-      )
+    codigos_repartidores =
+      repartidores
+      |> Enum.map(fn repartidor -> repartidor[:codigo] end)
+      |> Enum.join(", ")
+
+    zonas_disponibles =
+      zonas
+      |> Enum.map(fn zona -> "#{zona[:id]} (#{zona[:nombre]})" end)
+      |> Enum.join(", ")
+
+    mensaje = """
+    === Agregar un servicio adicional (opcional) ===
+    Ingrese los datos en este orden, separados por punto y coma (;):
+      Repartidor; zona; día; kilómetros; retraso en minutos
+    Ejemplo: M01;Z1;2;18;5
+    Repartidores disponibles: #{codigos_repartidores}
+    Zonas disponibles: #{zonas_disponibles}
+    Reglas: día 1-6, kilómetros mayores que 0 y hasta 45, retraso entre -30 y 180 minutos.
+    Presione Enter sin escribir nada si no desea agregar un servicio.
+    Servicio:
+    """
+
+    entrada = Util.ingresar(String.trim_trailing(mensaje) <> " ", :texto)
 
     if entrada == "" do
       Util.mostrar_mensaje("Se omitió la entrada adicional.")
@@ -37,23 +55,29 @@ defmodule Interfaz do
         {:ok, servicio} ->
           case Validaciones.validar_servicio(servicio, repartidores, zonas) do
             {:ok, servicio_validado} ->
-              Util.mostrar_mensaje("El servicio adicional fue agregado.")
+              Util.mostrar_mensaje("Servicio agregado. Se incluirá en los reportes.")
               servicios_validos ++ [servicio_validado]
 
             {:error, motivo} ->
-              Util.mostrar_mensaje("Servicio rechazado por #{inspect({:error, motivo})}.")
+              Util.mostrar_mensaje("No se agregó el servicio: #{motivo_rechazo(motivo)}.")
               servicios_validos
           end
 
         {:error, :formato_invalido} ->
-          Util.mostrar_mensaje("Servicio rechazado por {:error, :formato_invalido}.")
+          Util.mostrar_mensaje(
+            "No se agregó el servicio: formato incorrecto. Ingrese exactamente cinco campos " <>
+              "separados por punto y coma (;), por ejemplo: M01;Z1;2;18;5."
+          )
+
           servicios_validos
       end
     end
   end
 
   defp parsear_servicio(entrada) do
-    case String.split(entrada, ";") do
+    campos = entrada |> String.split(";") |> Enum.map(&String.trim/1)
+
+    case campos do
       [repartidor, zona, dia_texto, kilometros_texto, retraso_texto] ->
         construir_servicio(repartidor, zona, dia_texto, kilometros_texto, retraso_texto)
 
@@ -98,6 +122,16 @@ defmodule Interfaz do
         end
     end
   end
+
+  defp motivo_rechazo(:repartidor_desconocido), do: "el código de repartidor no existe"
+  defp motivo_rechazo(:zona_desconocida), do: "la zona no existe"
+  defp motivo_rechazo(:dia_invalido), do: "el día debe ser un número entero entre 1 y 6"
+
+  defp motivo_rechazo(:kilometros_fuera_de_rango),
+    do: "los kilómetros deben ser mayores que 0 y no superar 45"
+
+  defp motivo_rechazo(:retraso_invalido),
+    do: "el retraso debe estar entre -30 y 180 minutos"
 
   defp generar_reportes(servicios_validos, rechazados, repartidores) do
     Util.mostrar_mensaje("\n=== Reportes Jugutier ===")
