@@ -5,6 +5,9 @@
 # 5 El retraso es numérico y se encuentra entre -30 y 180 minutos :retraso_invalido
 
 defmodule Validaciones do
+
+  # Verifica que el código del repartidor exista en la lista de repartidores.
+  # Devuelve :ok si existe o {:error, :repartidor_desconocido} si no.
   def validar_repartidor(codigo, repartidores) do
     codigos_validos = Enum.map(repartidores, fn r -> r[:codigo] end)
 
@@ -15,6 +18,8 @@ defmodule Validaciones do
     end
   end
 
+  # Verifica que el id de la zona exista en la lista de zonas.
+  # Devuelve :ok si existe o {:error, :zona_desconocida} si no.
   def validar_zona(zona, zonas) do
     zonas_validas = Enum.map(zonas, fn z -> z[:id] end)
 
@@ -25,6 +30,8 @@ defmodule Validaciones do
     end
   end
 
+  # Verifica que el día sea un entero entre 1 y 6.
+  # Devuelve :ok si es válido o {:error, :dia_invalido} si no.
   def validar_dia(dia) do
     if is_integer(dia) and dia >= 1 and dia <= 6 do
       :ok
@@ -33,6 +40,8 @@ defmodule Validaciones do
     end
   end
 
+  # Verifica que los kilómetros sean un número mayor que 0 y máximo 45.
+  # Devuelve :ok si es válido o {:error, :kilometros_fuera_de_rango} si no.
   def validar_kilometros(kilometros) do
     if is_number(kilometros) and kilometros > 0 and kilometros <= 45 do
       :ok
@@ -41,6 +50,8 @@ defmodule Validaciones do
     end
   end
 
+  # Verifica que el retraso sea un número entre -30 y 180 minutos.
+  # Devuelve :ok si es válido o {:error, :retraso_invalido} si no.
   def validar_retraso(retraso) do
     if is_number(retraso) and retraso >= -30 and retraso <= 180 do
       :ok
@@ -49,6 +60,8 @@ defmodule Validaciones do
     end
   end
 
+  # Encadena las cinco reglas de validación en orden con `with`.
+  # Devuelve {:ok, servicio} si pasa todas, o el primer {:error, motivo} que falle.
   def validar_servicio(servicio, repartidores, zonas) do
     with :ok <- validar_repartidor(servicio[:repartidor], repartidores),
          :ok <- validar_zona(servicio[:zona], zonas),
@@ -59,10 +72,14 @@ defmodule Validaciones do
     end
   end
 
+  # Valida toda la lista de servicios y los separa en dos listas: válidos y rechazados.
+  # Devuelve {validos, rechazados}, donde cada rechazado es una tupla {servicio, motivo}.
   def validar_servicios_validos_rechazados(servicios, repartidores, zonas) do
     lista_formateada =
       Enum.map(servicios, fn s -> {s, validar_servicio(s, repartidores, zonas)} end)
 
+    # Separa la lista de {servicio, resultado} en dos:
+    #los que empiezan con :ok y los que empiezan con :error.
     {ok, error} =
       Enum.split_with(lista_formateada, fn {_servicio, resultado} ->
         match?({:ok, _}, resultado)
