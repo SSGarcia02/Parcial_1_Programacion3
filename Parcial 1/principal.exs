@@ -1,9 +1,14 @@
+# Carga los módulos del proyecto desde el directorio actual del archivo.
+# Se usa __DIR__ para que las rutas funcionen sin importar desde dónde se ejecute.
 Enum.each(
   ["Datos.exs", "Validaciones.exs", "Liquidacion.exs", "Reportes.exs", "Util.ex"],
   &Code.require_file(&1, __DIR__)
 )
 
 defmodule Interfaz do
+  # Punto de entrada del programa.
+  # Carga datos, valida los servicios, captura un servicio adicional opcional,
+  # genera los reportes R1 a R8 y muestra el comprobante de un repartidor.
   def main do
     repartidores = Datos.repartidores()
     zonas = Datos.zonas()
@@ -22,6 +27,13 @@ defmodule Interfaz do
     generar_comprobante(servicios_validos, repartidores)
   end
 
+  # Pide al usuario un servicio adicional opcional y lo agrega a la lista de válidos si pasa la validación.
+  # Parámetros:
+  #   servicios_validos — lista de servicios ya validados.
+  #   repartidores — lista de repartidores (para mostrar códigos y validar el repartidor).
+  #   zonas — lista de zonas (para mostrar ids y validar la zona).
+  # Si el usuario presiona Enter, omite la entrada. Si el formato es inválido o falla alguna regla,
+  # informa el motivo y devuelve la lista original sin cambios.
   defp capturar_servicio_adicional(servicios_validos, repartidores, zonas) do
     codigos_repartidores =
       repartidores
@@ -74,6 +86,9 @@ defmodule Interfaz do
     end
   end
 
+  # Parsea la entrada del usuario separada por punto y coma en cinco campos.
+  # Parámetro: entrada — string con el formato "repartidor;zona;dia;kilometros;retraso".
+  # Devuelve {:ok, mapa_servicio} o {:error, :formato_invalido} si no hay exactamente cinco campos.
   defp parsear_servicio(entrada) do
     campos = entrada |> String.split(";") |> Enum.map(&String.trim/1)
 
@@ -86,6 +101,9 @@ defmodule Interfaz do
     end
   end
 
+  # Construye el mapa del servicio a partir de los cinco campos en texto.
+  # Convierte día a entero y kilómetros/retraso a número.
+  # Devuelve {:ok, mapa} si todo convierte bien, o {:error, :formato_invalido} si algo falla.
   defp construir_servicio(repartidor, zona, dia_texto, kilometros_texto, retraso_texto) do
     with {:ok, dia} <- parsear_entero(dia_texto),
          {:ok, kilometros} <- parsear_numero(kilometros_texto),
@@ -103,6 +121,8 @@ defmodule Interfaz do
     end
   end
 
+  # Convierte un texto a entero.
+  # Devuelve {:ok, entero} si el texto es un entero completo, o {:error, :formato_invalido} si no.
   defp parsear_entero(texto) do
     case Integer.parse(texto) do
       {entero, ""} -> {:ok, entero}
@@ -110,6 +130,9 @@ defmodule Interfaz do
     end
   end
 
+  # Convierte un texto a número (entero o decimal).
+  # Intenta primero Integer.parse/1 y luego Float.parse/1.
+  # Devuelve {:ok, numero} si el texto es un número completo, o {:error, :formato_invalido} si no.
   defp parsear_numero(texto) do
     case Integer.parse(texto) do
       {entero, ""} ->
@@ -123,6 +146,8 @@ defmodule Interfaz do
     end
   end
 
+  # Traduce cada átomo de motivo de rechazo a un mensaje legible para el usuario.
+  # Se usa en Interfaz para informar por qué se rechazó un servicio adicional.
   defp motivo_rechazo(:repartidor_desconocido), do: "el código de repartidor no existe"
   defp motivo_rechazo(:zona_desconocida), do: "la zona no existe"
   defp motivo_rechazo(:dia_invalido), do: "el día debe ser un número entero entre 1 y 6"
@@ -133,6 +158,12 @@ defmodule Interfaz do
   defp motivo_rechazo(:retraso_invalido),
     do: "el retraso debe estar entre -30 y 180 minutos"
 
+  # Calcula y muestra los reportes R1 a R8, la combinación con la empresa aliada,
+  # el ranking top 5 por neto y las mediciones de tiempo de cada reporte.
+  # Parámetros:
+  #   servicios_validos — lista de servicios que pasaron la validación.
+  #   rechazados — lista de tuplas {servicio, motivo} de los servicios rechazados.
+  #   repartidores — lista completa de repartidores.
   defp generar_reportes(servicios_validos, rechazados, repartidores) do
     Util.mostrar_mensaje("\n=== Reportes Jugutier ===")
 
@@ -148,6 +179,8 @@ defmodule Interfaz do
     r7 = Reportes.reporte_r7(liquidaciones, servicios_validos)
     r8 = Reportes.reporte_r8(servicios_validos, zonas)
 
+    # Calcula la combinación de km con la empresa aliada (a partir de la lista por_dia de R3),
+    # el ranking top 5 por neto descendente y las mediciones de tiempo de R2 a R8.
     combinacion = Reportes.combinar_kilometros_aliada(elem(r3, 0))
     ranking = Reportes.ranking(liquidaciones, orden: :desc, limite: 5)
     mediciones = Reportes.medir_reportes(servicios_validos, liquidaciones, zonas, repartidores)
@@ -165,6 +198,11 @@ defmodule Interfaz do
     IO.inspect(mediciones, label: "Mediciones de ejecución (µs)")
   end
 
+  # Pide el código de un repartidor y muestra su comprobante de pago con el detalle diario y los totales.
+  # Parámetros:
+  #   servicios_validos — lista de servicios válidos.
+  #   repartidores — lista completa de repartidores (para buscar el código y validar su existencia).
+  # Si el código no existe, informa la situación y no muestra comprobante.
   defp generar_comprobante(servicios_validos, repartidores) do
     codigo = Util.ingresar("Ingrese el código del repartidor (ej. M01):", :texto)
 
@@ -172,6 +210,9 @@ defmodule Interfaz do
       nil ->
         Util.mostrar_mensaje("El repartidor no existe")
 
+      # Calcula los resúmenes diarios solo del repartidor consultado.
+      # Agrupa los servicios válidos por {repartidor, dia}, filtra los del código pedido
+      # y construye un resumen diario por cada día trabajado.
       repartidor ->
         resumenes =
           servicios_validos
