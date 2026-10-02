@@ -287,7 +287,6 @@ defmodule Reportes do
   # Ordena las liquidaciones por neto según las opciones y devuelve solo las primeras `limite`.
   #   liquidaciones — lista de liquidaciones por repartidor.
   #   opciones — keyword list con :orden (:asc o :desc, por defecto :desc) y :limite (por defecto todas).
-  # Ojo: el primer argumento se llama `reporte_r2` en tu código, pero recibe liquidaciones. Renómbralo.
   def ranking(reporte_r2, opciones) do
     orden = Keyword.get(opciones, :orden, :desc)
     limite = Keyword.get(opciones, :limite, length(reporte_r2))
