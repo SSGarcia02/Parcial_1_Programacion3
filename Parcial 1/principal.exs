@@ -1,3 +1,9 @@
+# SOLORZANO GARCIA SEBASTIÁN jssolorzanog@uqvirtual.edu.co
+# CARDONA PETREL JUAN DAVID juand.cardonap@uqvirtual.edu.co
+# MORALES LONDOÑO NIKOLL nikoll.moralesl@uqvirtual.edu.co
+# Fecha: 1 de octubre del 2026
+
+
 # Carga los módulos del proyecto desde el directorio actual del archivo.
 # Se usa __DIR__ para que las rutas funcionen sin importar desde dónde se ejecute.
 Enum.each(

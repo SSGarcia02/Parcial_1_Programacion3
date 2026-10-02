@@ -1,8 +1,7 @@
-# 1 El repartidor existe :repartidor_desconocido
-# 2 La zona existe :zona_desconocida
-# 3 El día es un entero entre 1 y 6 :dia_invalido
-# 4 Los kilómetros son un número mayor que 0 y máximo 45 :kilometros_fuera_de_rango
-# 5 El retraso es numérico y se encuentra entre -30 y 180 minutos :retraso_invalido
+# SOLORZANO GARCIA SEBASTIÁN jssolorzanog@uqvirtual.edu.co
+# CARDONA PETREL JUAN DAVID juand.cardonap@uqvirtual.edu.co
+# MORALES LONDOÑO NIKOLL nikoll.moralesl@uqvirtual.edu.co
+# Fecha: 1 de octubre del 2026
 
 defmodule Validaciones do
 

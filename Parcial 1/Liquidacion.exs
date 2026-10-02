@@ -1,3 +1,8 @@
+# SOLORZANO GARCIA SEBASTIÁN jssolorzanog@uqvirtual.edu.co
+# CARDONA PETREL JUAN DAVID juand.cardonap@uqvirtual.edu.co
+# MORALES LONDOÑO NIKOLL nikoll.moralesl@uqvirtual.edu.co
+# Fecha: 1 de octubre del 2026
+
 defmodule Liquidacion do
   @tarifa_base_por_kilometro 2500
   @kilometros_diarios_para_bonificacion 80
